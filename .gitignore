@@ -37,6 +37,9 @@ docs/runtime/INTERNAL_CAPABILITY_CONSUMED.jsonl
 # 临时交付/调试文件，不入库
 temp/
 
+# macOS AppleDouble 元数据（复制/同步到外置盘时产生，非真实文件）
+._*
+
 # >>> ORCA 治理块 BEGIN（母版托管，勿手改） >>>
 # 本块由母版 scripts/orca-gitignore.sh 托管，请勿手改；要改请改 scripts/orca-public-ignore.txt 后重跑。
 /AGENTS.md
