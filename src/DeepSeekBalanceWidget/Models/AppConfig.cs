@@ -67,6 +67,12 @@ public sealed class AppConfig
     /// <summary>ChatGPT 额度恢复播报阈值（默认 100%，即回到满额才播报恢复）。</summary>
     public int GptQuotaRecoveredPercent { get; set; } = 100;
 
+    /// <summary>
+    /// ChatGPT 额度恢复提醒开关。关闭后不再弹「已恢复」通知，但恢复事件仍写入事件日志；
+    /// 低量预警不受此开关影响。
+    /// </summary>
+    public bool GptQuotaRecoveryNoticeEnabled { get; set; } = true;
+
     /// <summary>OpenCode 额度预警总开关（5 小时 / 周 / 月）。</summary>
     public bool EnableOpenCodeQuotaAlerts { get; set; } = true;
 
@@ -134,6 +140,29 @@ public sealed class AppConfig
             GptWeeklyAlertEnabled = false;
         if (OcWeeklyAlertEnabled && !CodexWeeklyAlertEnabled)
             OcWeeklyAlertEnabled = false;
+
+        // 旧版本把 09:00-12:00 / 14:00-18:00 存成 WeekdaysOnly=false（当时不区分周末），
+        // 与官方口径（周末全天谷时）冲突。小时数正是官方默认的那两段时升级为仅工作日生效，
+        // 否则升级用户会一直把周末算成高峰。
+        PeakHourRanges ??= new List<PeakRange>();
+        if (PeakHourRanges.Count == 0)
+        {
+            PeakHourRanges = new List<PeakRange>
+            {
+                new(9, 12, WeekdaysOnly: true),
+                new(14, 18, WeekdaysOnly: true)
+            };
+        }
+        else
+        {
+            for (int i = 0; i < PeakHourRanges.Count; i++)
+            {
+                var r = PeakHourRanges[i];
+                if (r is null || r.WeekdaysOnly) continue;
+                if ((r.StartHour == 9 && r.EndHour == 12) || (r.StartHour == 14 && r.EndHour == 18))
+                    PeakHourRanges[i] = r with { WeekdaysOnly = true };
+            }
+        }
 
         AgentOrder ??= new List<string>();
         if (AgentOrder.Count == 0)

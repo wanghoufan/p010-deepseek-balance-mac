@@ -56,6 +56,7 @@ public partial class SettingsWindow : Window
         GptRecoveredBox.Text = Math.Clamp(_config.GptQuotaRecoveredPercent, 1, 100)
             .ToString(CultureInfo.CurrentCulture);
         GptWeeklyCheck.IsChecked = _config.GptWeeklyAlertEnabled;
+        GptRecoveryNoticeCheck.IsChecked = _config.GptQuotaRecoveryNoticeEnabled;
 
         EnableOcAlerts.IsChecked = _config.EnableOpenCodeQuotaAlerts;
         string ocThresholds = _config.OcQuotaAlertThresholds is { Count: > 0 } configuredOcThresholds
@@ -94,6 +95,12 @@ public partial class SettingsWindow : Window
 
         TopmostCheck.IsChecked = _config.IsAlwaysOnTop;
         ShowPeakCheck.IsChecked = _config.ShowPeakIndicator;
+        PeakScheduleHint.Text =
+            $"高峰判定：{PeakHourCalculator.Describe(_config.PeakHourRanges)}（北京时间）\n" +
+            $"官方口径：周末与中国法定节假日全天为谷时。下次切换 {PeakHourCalculator.DescribeNextBoundary(DateTime.Now, _config.PeakHourRanges)}。\n" +
+            (ChinaHolidayCalendar.IsCovered(PeakHourCalculator.ToBeijing(DateTime.Now).Year)
+                ? $"节假日日历：已内建 {ChinaHolidayCalendar.DescribeCoverage()}（国务院公布版）。"
+                : $"注意：{ChinaHolidayCalendar.DescribePending(PeakHourCalculator.ToBeijing(DateTime.Now).Year)}，请更新节假日日历。");
         MiniModeCheck.IsChecked = _config.UseMiniMode;
         switch (ThemeService.Normalize(_config.ThemeMode))
         {
@@ -417,6 +424,7 @@ public partial class SettingsWindow : Window
             bool enableOpenRouter = EnableOpenRouterCheck.IsChecked == true;
             bool enableGptAlerts = EnableGptAlerts.IsChecked == true;
             bool gptWeekly = GptWeeklyCheck.IsChecked == true;
+            bool gptRecoveryNotice = GptRecoveryNoticeCheck.IsChecked == true;
             bool enableOcAlerts = EnableOcAlerts.IsChecked == true;
             bool ocWeekly = OcWeeklyCheck.IsChecked == true;
             bool ocMonthly = OcMonthlyCheck.IsChecked == true;
@@ -469,6 +477,7 @@ public partial class SettingsWindow : Window
                 _config.GptQuotaAlertThresholds = gptThresholds;
                 _config.GptQuotaRecoveredPercent = gptRecovered;
                 _config.GptWeeklyAlertEnabled = gptWeekly;
+                _config.GptQuotaRecoveryNoticeEnabled = gptRecoveryNotice;
                 _config.EnableOpenCodeQuotaAlerts = enableOcAlerts;
                 _config.OcQuotaAlertThresholds = ocThresholds;
                 _config.OcQuotaRecoveredPercent = ocRecovered;

@@ -52,6 +52,7 @@ public partial class MainWindow : Window
     private MacMenuBarBalance? _menuBarBalanceOc2;
     private MacMenuBarBalance? _menuBarBuilder;
     private string? _lastBuilderRecommendationKey;
+    private string? _lastPeakState;
     private PosixSignalRegistration? _terminateRegistration;
     private ParsedBalance? _latestBalance;
     private string _menuBarBalanceText = "¥ --";
@@ -65,6 +66,7 @@ public partial class MainWindow : Window
     private string _menuBarOpenRouterText = "--";
     private string _menuBarOpenRouterTooltip = "OpenRouter：正在读取额度";
     private string _menuBarPeakText = "谷";
+    private string _menuBarPeakTooltip = "";
     private decimal? _previousBalance;
     private bool _refreshing;
     private bool _codexRefreshing;
@@ -523,8 +525,9 @@ public partial class MainWindow : Window
     private void RaiseCodexQuotaAlerts(IReadOnlyList<CodexAccountUsageSnapshot> accounts)
     {
         bool toastsEnabled = _config.ShowToastNotifications;
+        bool recoveryNoticeEnabled = _config.GptQuotaRecoveryNoticeEnabled;
         var evaluated = _codexQuotaAlerts.Evaluate(accounts, _config, DateTimeOffset.Now);
-        Console.Error.WriteLine($"[Alert] evaluate accounts={accounts.Count} alerts={evaluated.Count} toastsEnabled={toastsEnabled}");
+        Console.Error.WriteLine($"[Alert] evaluate accounts={accounts.Count} alerts={evaluated.Count} toastsEnabled={toastsEnabled} recoveryNotice={recoveryNoticeEnabled}");
         foreach (var alert in evaluated)
         {
             // 日志必须写在弹窗开关判断之前：用户关掉弹窗后仍要留下记录，
@@ -537,7 +540,7 @@ public partial class MainWindow : Window
                     "GPT",
                     $"{ShortAccountName(alert.Email)} · {alert.WindowLabel}已恢复",
                     $"剩余 {alert.RemainingPercent}%（恢复线 {_config.GptQuotaRecoveredPercent}%）");
-                if (!toastsEnabled) continue;
+                if (!toastsEnabled || !recoveryNoticeEnabled) continue;
                 MacToastService.Show(
                     $"{ShortAccountName(alert.Email)} · {alert.WindowLabel}已恢复",
                     $"剩余额度已回到 {alert.RemainingPercent}%", _config);
@@ -869,14 +872,43 @@ public partial class MainWindow : Window
     {
         bool isPeak = PeakHourCalculator.IsPeak(DateTime.Now, _config.PeakHourRanges);
         bool visible = _config.EnableDeepSeekMonitoring && _config.ShowPeakIndicator;
+        string schedule = PeakHourCalculator.Describe(_config.PeakHourRanges);
+        string nextSwitch = PeakHourCalculator.DescribeNextBoundary(DateTime.Now, _config.PeakHourRanges);
+        // 官方口径（api-docs.deepseek.com/quick_start/pricing）：高峰＝UTC 周一至周五
+        // 01:00-04:00 与 06:00-10:00，折北京时间 09:00-12:00、14:00-18:00；
+        // 其余时段含周末与中国法定节假日全天按谷时计费。
+        var bjNow = PeakHourCalculator.ToBeijing(DateTime.Now);
+        string holidayNote = ChinaHolidayCalendar.IsCovered(bjNow.Year)
+            ? $"周末与{ChinaHolidayCalendar.DescribeCoverage()}全天为谷时"
+            : $"周末全天为谷时；{ChinaHolidayCalendar.DescribePending(bjNow.Year)}";
+        string tooltip =
+            $"当前：{(isPeak ? "高峰时段（按高峰价计费）" : "谷时（按谷时价计费）")}\n" +
+            $"高峰时段：{schedule}（北京时间）\n" +
+            $"下次切换：{nextSwitch}\n" +
+            holidayNote;
         PeakText.IsVisible = visible;
         PeakText.Text = isPeak ? "● 预计高峰时段" : "● 预计非高峰时段";
         PeakText.Foreground = ThemeBrush(isPeak ? "PeakWarningBrush" : "PeakSuccessBrush");
+        ToolTip.SetTip(PeakText, tooltip);
         MiniPeakDot.IsVisible = visible;
         MiniPeakLabel.IsVisible = visible;
         MiniPeakDot.Foreground = ThemeBrush(isPeak ? "PeakWarningBrush" : "PeakSuccessBrush");
         MiniPeakLabel.Text = isPeak ? "高峰" : "非高峰";
+        ToolTip.SetTip(MiniPeakLabel, tooltip);
         _menuBarPeakText = isPeak ? "峰" : "谷";
+        _menuBarPeakTooltip = $"DeepSeek 计费：{(isPeak ? "高峰价" : "谷时价")}｜{schedule}（北京时间）｜下次切换 {nextSwitch}";
+
+        // 仅状态变化时写一行，方便核对峰谷判定是否与官方口径一致（QA 取证用）。
+        string stateKey = isPeak ? "peak" : "offpeak";
+        if (_lastPeakState != stateKey)
+        {
+            Console.Error.WriteLine(
+                $"[Peak] {stateKey} at {DateTime.Now:yyyy-MM-dd HH:mm} bj={bjNow:yyyy-MM-dd HH:mm} " +
+                $"holiday={ChinaHolidayCalendar.IsHoliday(bjNow)} calendar={ChinaHolidayCalendar.DescribeCoverage()} " +
+                $"schedule={schedule} next={nextSwitch}");
+            _lastPeakState = stateKey;
+        }
+
         RefreshMenuBar();
     }
 
@@ -1213,7 +1245,11 @@ public partial class MainWindow : Window
         if (_config.EnableWorkbuddyMonitoring) titleParts.Add("WB --");
         if (titleParts.Count == 0) titleParts.Add("额度监测已关闭");
         var tooltipParts = new List<string>();
-        if (_config.EnableDeepSeekMonitoring) tooltipParts.Add(_menuBarBalanceTooltip);
+        if (_config.EnableDeepSeekMonitoring)
+        {
+            tooltipParts.Add(_menuBarBalanceTooltip);
+            if (_config.ShowPeakIndicator) tooltipParts.Add(_menuBarPeakTooltip);
+        }
         if (_config.EnableCodexMonitoring) tooltipParts.Add("ChatGPT Plus：" + _menuBarCodexTooltip);
         if (_config.EnableOpenCodeMonitoring) tooltipParts.Add("OpenCode Go：" + _menuBarOpenCodeTooltip);
         if (_config.EnableOpenRouterMonitoring) tooltipParts.Add("OpenRouter：" + _menuBarOpenRouterTooltip);

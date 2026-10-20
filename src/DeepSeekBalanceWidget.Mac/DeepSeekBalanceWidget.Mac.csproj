@@ -46,5 +46,6 @@
     <Compile Include="../DeepSeekBalanceWidget/Services/OpenRouterUsageParser.cs" Link="Services/OpenRouterUsageParser.cs" />
     <Compile Include="../DeepSeekBalanceWidget/Services/OpenRouterUsageFormatter.cs" Link="Services/OpenRouterUsageFormatter.cs" />
     <Compile Include="../DeepSeekBalanceWidget/Services/PeakHourCalculator.cs" Link="Services/PeakHourCalculator.cs" />
+    <Compile Include="../DeepSeekBalanceWidget/Services/ChinaHolidayCalendar.cs" Link="Services/ChinaHolidayCalendar.cs" />
   </ItemGroup>
 </Project>
