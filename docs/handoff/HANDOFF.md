@@ -155,3 +155,18 @@
 - **未完成 / 环境限制**：与上一段相同——界面文字可视效果仍无截屏取证（`screencapture` 报 `could not create image from display`），**请用户肉眼确认设置页第三行是否已从「暂未内建」变成「已内建 2025–2026 年法定节假日」**。
 - **维护口（下次必看）**：2027 年放假安排公布后，① 在 `ChinaHolidayCalendar.BuildHolidays()` 补 `Range(2027, …)`；② 把 `LastCoveredYear` 抬到 2027；③ 在 `temp/peak-check` 补两条 2027 断言复跑。**不抬高 `LastCoveredYear` 会继续回退工作日判定**（安全但会在节假日误判高峰）。
 - **自审口径**：主开发者模式，自审 + 真机自测，无独立 reviewer/QA 角色；账本记一行（`chain_status=OPEN`，待用户界面确认）；QA 留痕见 `docs/qa/2026-10-20-峰谷时段校正.md`（含本段 A1 追加）。
+
+## 本批收尾 · 2026-10-20｜洁癖 + 提交推送（用户口令 `jcp`）
+
+- **小清理（按用户授权自决，不打断）**：删除仓内（除 `.git`）**940 个 `._*` AppleDouble 元数据文件**——外置盘复制/同步产生的假文件，删除不影响任何代码与后续开发；`.gitignore` 补 `._*` 防再刷新。`temp/` 与 `*.旧版-*` 保留（前者是待清理交付区，后者是回滚备份，按规则都不动）。
+- **提交（两条，均在 `master`）**：
+  - `27f0e06` 功能批：`fix: 峰谷判定按官方口径校正 + 界面展示 + 内建法定节假日日历 + GPT 恢复提醒独立开关`（13 files / +388 / −8）
+  - `c840200` 治理批：`chore: 忽略 macOS AppleDouble 元数据 + 同步治理状态（2026-10-17 铺包）`（2 files / +9 / −5）
+  - 分支口径：**本仓只有 `master`，没有 `main`**；已 `git push origin master`（`e91e7b3..c840200`）。
+- **pre-commit hook 两处 bug（本轮踩到并修好，需回母版同步）**：
+  1. `pre-commit-guard.sh:37` 原写法 `bad+=("$f（含真实行…）")` —— bash 3.2 把全角括号并入变量名，`set -u` 下报 `f�: unbound variable`，**任何带账本改动的提交都被打死**。改为 `"${f}（…）"`。
+  2. 第 ② 段「账本不得含真实行」原先是**无条件**的，但脚本会分发到每个项目仓 —— 项目账本本来就该记真实行，导致项目仓提交被误伤（`✗ docs/model/TASK-MODEL-LOG.jsonl（含真实行…）`）。按第 ③ 段同一口径收窄为**只在母版仓路径 `/4.Templates（PC）` 生效**。
+  - 修的是 `scripts/pre-commit-guard.sh`，并用 `bash scripts/install-governance-hooks.sh .` 重装 `.git/hooks/pre-commit`（hook 是拷贝不是软链）。修完 `bash .git/hooks/pre-commit` → `LEDGER-OK (含 WARN)`、`EXIT=0`。
+  - **待办**：这两处要同步回母版 `4.Templates（PC）/scripts/pre-commit-guard.sh`，再走体系四件套（两包同步 + 概览 + `check-sync.sh` + `CHANGELOG.md`）。本仓是项目仓，**未擅自改母版**。
+- **公开仓口径**：本仓 GitHub 为 PUBLIC，`.gitignore` 的 ORCA 治理块已在位；本轮新增的 ORCA 散件（`_cb-*.py`、`orca-*.sh`、`pre-commit-guard.sh` 等）与母版机制清单 `docs/model/NEXT-TASKS.md` **不入库**，改记到 `.git/info/exclude`（仅本机生效，`git status` 干净，不影响远端与其他克隆）。
+- **账本**：两行 `chain_status` 仍为 `OPEN` —— 待用户肉眼确认三处峰谷显示后收口。
